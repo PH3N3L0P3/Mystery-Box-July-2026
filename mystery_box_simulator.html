@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CBPC-TH Box Simulator</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#151b23; --panel2:#1c2430; --border:#2a3441;
+    --text:#e6edf3; --sub:#8b98a5; --accent:#f0b90b; --green:#3fb950;
+    --red:#f85149; --epic:#f0b90b; --rare:#a371f7; --common:#6e7681;
+    --blue:#58a6ff; --bike:#4dd0e1;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:'Segoe UI',-apple-system,Tahoma,sans-serif;
+    background:var(--bg); color:var(--text); padding:20px;
+  }
+  h1{font-size:20px; margin:0 0 4px;}
+  .sub{color:var(--sub); font-size:13px; margin-bottom:14px;}
+  .layout{display:grid; grid-template-columns: 340px 1fr; gap:16px;}
+  @media(max-width:900px){.layout{grid-template-columns:1fr;}}
+  .layout-rev{display:grid; grid-template-columns: 1fr 340px; gap:16px;}
+  @media(max-width:900px){.layout-rev{grid-template-columns:1fr;}}
+  .control-row{display:flex; gap:28px; align-items:flex-end; flex-wrap:wrap; margin-bottom:4px;}
+  .control-actions{display:flex; gap:8px;}
+  .control-actions button{white-space:nowrap;}
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:16px; margin-bottom:16px;
+  }
+  .panel h2{font-size:14px; margin:0 0 12px; color:var(--accent); text-transform:uppercase; letter-spacing:.04em;}
+  label{font-size:12px; color:var(--sub); display:block; margin-bottom:4px;}
+  input[type=number]{
+    width:100%; background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    padding:8px 10px; border-radius:6px; font-size:14px; margin-bottom:10px;
+  }
+  select{
+    width:100%; background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    padding:8px 10px; border-radius:6px; font-size:13px; margin-bottom:10px;
+  }
+  .row{display:flex; gap:8px;}
+  button{
+    background:var(--accent); color:#1a1a1a; border:none; border-radius:6px;
+    padding:10px 14px; font-size:13px; font-weight:600; cursor:pointer; flex:1;
+  }
+  button.secondary{background:var(--panel2); color:var(--text); border:1px solid var(--border);}
+  button.danger{background:transparent; color:var(--red); border:1px solid var(--red);}
+  button.skip{background:transparent; color:var(--sub); border:1px solid var(--border);}
+  button.small{padding:4px 8px; font-size:11.5px; flex:none;}
+  button:disabled{opacity:.4; cursor:not-allowed;}
+  button:hover:not(:disabled){opacity:.88;}
+
+  /* top-level tool tabs */
+  .maintabs{display:flex; gap:8px; margin-bottom:18px; border-bottom:1px solid var(--border); padding-bottom:14px;}
+  .maintabs button{flex:none; padding:10px 18px; font-size:13.5px;}
+  .maintabs button.active{background:var(--accent); color:#1a1a1a;}
+  .maintabs button:not(.active){background:var(--panel2); color:var(--sub); border:1px solid var(--border);}
+  .mainview{display:none;}
+  .mainview.active{display:block;}
+
+  /* box-type sub tabs (Option Scroll view) */
+  .boxtabs{display:flex; gap:6px; margin-bottom:14px;}
+  .boxtabs button{padding:9px 6px; font-size:12.5px;}
+  .boxtabs button.active{background:var(--accent); color:#1a1a1a;}
+  .boxtabs button:not(.active){background:var(--panel2); color:var(--sub); border:1px solid var(--border);}
+
+  .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .stat{background:var(--panel2); border:1px solid var(--border); border-radius:8px; padding:10px;}
+  .stat .k{font-size:11px; color:var(--sub); margin-bottom:3px;}
+  .stat .v{font-size:16px; font-weight:700;}
+  .stat .v.pos{color:var(--green);}
+  .stat .v.neg{color:var(--red);}
+  .box-counts{display:flex; gap:8px; margin-top:10px;}
+  .chip{flex:1; text-align:center; padding:8px 4px; border-radius:8px; font-size:12px; border:1px solid var(--border);}
+  .chip .n{font-size:15px; font-weight:700; display:block;}
+  .chip.normal{background:rgba(88,166,255,.08); color:var(--blue);}
+  .chip.ssr{background:rgba(163,113,247,.1); color:var(--rare);}
+  .chip.ur{background:rgba(240,185,11,.1); color:var(--accent);}
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  thead th{
+    position:sticky; top:0; background:var(--panel); text-align:left; padding:8px 10px;
+    color:var(--sub); font-weight:600; border-bottom:1px solid var(--border); font-size:11px;
+    text-transform:uppercase; letter-spacing:.03em;
+  }
+  thead th.sortable{cursor:pointer; user-select:none;}
+  thead th.sortable:hover{color:var(--accent);}
+  tbody td{padding:7px 10px; border-bottom:1px solid #1e2733;}
+  tbody tr:hover{background:var(--panel2);}
+  tbody tr.skipped{opacity:.45;}
+  .tbl-wrap{max-height:420px; overflow-y:auto; border:1px solid var(--border); border-radius:8px;}
+  .badge{padding:2px 8px; border-radius:20px; font-size:10.5px; font-weight:700;}
+  .badge.Normal{background:rgba(88,166,255,.15); color:var(--blue);}
+  .badge.SSR{background:rgba(163,113,247,.18); color:var(--rare);}
+  .badge.UR{background:rgba(240,185,11,.18); color:var(--accent);}
+  .badge.Weapon{background:rgba(88,166,255,.15); color:var(--blue);}
+  .badge.Armor{background:rgba(163,113,247,.18); color:var(--rare);}
+  .badge.Bike{background:rgba(77,208,225,.15); color:var(--bike);}
+  .tier{padding:1px 7px; border-radius:4px; font-size:10px; font-weight:700;}
+  .tier.Epic{background:rgba(240,185,11,.15); color:var(--epic);}
+  .tier.Rare{background:rgba(163,113,247,.15); color:var(--rare);}
+  .tier.Common{background:rgba(110,118,129,.2); color:#c9d1d9;}
+  .status{padding:1px 7px; border-radius:4px; font-size:10px; font-weight:700;}
+  .status.bought{background:rgba(63,185,80,.15); color:var(--green);}
+  .status.skipped{background:rgba(248,81,73,.12); color:var(--red);}
+  .empty{color:var(--sub); text-align:center; padding:30px; font-size:13px;}
+  .foot-note{font-size:11.5px; color:var(--sub); margin-top:8px; line-height:1.5;}
+  details{margin-top:6px;}
+  summary{cursor:pointer; font-size:12.5px; color:var(--sub);}
+  .val{color:var(--accent); font-weight:600;}
+  .pending{
+    background:linear-gradient(135deg, rgba(240,185,11,.1), rgba(240,185,11,.03));
+    border:1px solid var(--accent); border-radius:10px; padding:14px 16px; margin-bottom:16px;
+  }
+  .pending .label{font-size:12.5px; color:var(--accent); font-weight:700; margin-bottom:10px;}
+  .pooltable td, .pooltable th{padding:5px 8px; font-size:11.5px;}
+  .rate-input{
+    width:72px; background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    padding:4px 6px; border-radius:5px; font-size:11.5px; margin-bottom:0;
+  }
+  .rate-sum{font-size:11.5px; color:var(--sub); margin:6px 0 10px;}
+  .rate-sum.ok{color:var(--green);}
+  .rate-sum.warn{color:var(--red);}
+  .thb-input{
+    width:90px; background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    padding:4px 6px; border-radius:5px; font-size:11.5px; margin-bottom:0;
+  }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<h1>🎁 CBPC-TH Box Simulator</h1>
+<div class="sub">รวมตัวจำลองกล่องอีเวนต์ "มิสเตอหรี่จูล้าย 26" (22 ก.ค. – 26 ส.ค. 2026)</div>
+
+<div class="maintabs">
+  <button id="mainTabMystery" class="active" onclick="switchMainTab('Mystery')">Mystery Box</button>
+  <button id="mainTabOption" onclick="switchMainTab('Option')">Option Scroll Random Box</button>
+</div>
+
+<!-- ============================= VIEW 1: MYSTERY BOX ============================= -->
+<div id="viewMystery" class="mainview active">
+<div class="sub">จำลองการสุ่มเปิดกล่อง Mystery Box [July] ตามอัตราและกลไกในชีท</div>
+
+<div class="panel">
+  <h2>ควบคุมการจำลอง</h2>
+  <div class="control-row">
+    <div>
+      <label>จำนวนครั้งที่จะเปิด</label>
+      <div class="row" style="align-items:center; gap:10px; margin-bottom:0;">
+        <div class="boxtabs" id="nOpensButtons" style="margin-bottom:0;">
+          <button class="active" data-n="1" onclick="selectN(1)">1</button>
+          <button data-n="10" onclick="selectN(10)">10</button>
+          <button data-n="100" onclick="selectN(100)">100</button>
+          <button data-n="1000" onclick="selectN(1000)">1000</button>
+        </div>
+        <input type="number" id="nOpensCustom" min="1" max="20000" placeholder="กำหนดเอง" style="width:110px; margin-bottom:0;" onchange="customN(this.value)">
+      </div>
+    </div>
+    <div class="control-actions">
+      <button id="btnOpen" onclick="openBoxes()">เปิดกล่อง</button>
+      <button class="danger" onclick="resetSim()">รีเซ็ตทั้งหมด</button>
+    </div>
+  </div>
+  <div class="foot-note">
+    กติกา: ทุกครั้งที่กด "เปิดกล่อง" เสีย <b>3,000 FG</b> ต่อครั้งเสมอ ไม่ว่าจะได้ไอเทมจากพูลไหน ·
+    ครบทุก 10 ครั้ง กล่องนั้นดึงไอเทมจากพูล <b>SSR</b> · ครบ 100 ครั้ง ดึงจากพูล <b>UR</b> (แทนที่ SSR) ·
+    ไอเทมที่สุ่มได้จะไปรออยู่ในรายการ "รอซื้อ" ด้านล่าง — ต้อง <b>กดซื้อ</b> ก่อน (เสีย 3,000,000 Alz/ชิ้น)
+    ไอเทมจึงจะเข้า <b>คลัง</b> จริง ถ้าไม่ซื้อ ไม่เสีย Alz แต่ก็ไม่ได้ไอเทมนั้น
+  </div>
+</div>
+
+<div class="panel">
+  <h2>ตารางไอเทม (แก้ไขมูลค่าและ Rate ได้)</h2>
+  <div class="boxtabs" id="rateTabButtons" style="margin-bottom:10px;">
+    <button class="active" data-pool="Normal" onclick="selectRatePool('Normal')">Normal (81 ไอเทม)</button>
+    <button data-pool="SSR" onclick="selectRatePool('SSR')">SSR (60 ไอเทม)</button>
+    <button data-pool="UR" onclick="selectRatePool('UR')">UR (47 ไอเทม)</button>
+  </div>
+  <div class="row" style="margin-bottom:8px;">
+    <button class="secondary" onclick="resetPoolRates()">รีเซ็ตพูลนี้เป็นค่าเริ่มต้น</button>
+    <button class="secondary" onclick="exportMysteryItemTable()">บันทึกตารางไอเทมเป็น .xlsx</button>
+  </div>
+  <div class="rate-sum" id="mysteryRateSum"></div>
+  <div class="tbl-wrap" style="max-height:340px;">
+    <table class="pooltable">
+      <thead><tr><th>ไอเทม</th><th>THB</th><th>Rate%</th></tr></thead>
+      <tbody id="mysteryRatePoolBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="layout-rev">
+  <div>
+    <div id="pendingArea"></div>
+
+    <div class="panel">
+      <h2>ประวัติการเปิดกล่อง (ล่าสุดอยู่บนสุด)</h2>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>ประเภทกล่อง</th><th>ไอเทมที่สุ่มได้</th>
+              <th>มูลค่า (THB)</th><th>สถานะ</th><th>FG จ่าย</th><th>Alz จ่าย</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr><td colspan="7" class="empty">ยังไม่มีประวัติการเปิด — กด "เปิดกล่อง"</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:0;">
+      <h2>ประวัติไอเทมที่ถูกเปิด</h2>
+      <div class="boxtabs" id="summaryFilterButtons" style="margin-bottom:10px;">
+        <button class="active" data-filter="All" onclick="setSummaryFilter('All')">ทั้งหมด</button>
+        <button data-filter="Normal" onclick="setSummaryFilter('Normal')">Normal</button>
+        <button data-filter="SSR" onclick="setSummaryFilter('SSR')">SSR</button>
+        <button data-filter="UR" onclick="setSummaryFilter('UR')">UR</button>
+        <button class="secondary" onclick="exportMysteryOpenedItems()" style="flex:none;">บันทึกเป็น .xlsx</button>
+      </div>
+      <div class="foot-note" id="summaryGrandTotal" style="font-size:13px; margin:0 0 10px;"></div>
+      <div class="tbl-wrap" style="max-height:none; overflow-y:visible;">
+        <table>
+          <thead>
+            <tr>
+              <th>ไอเทม</th>
+              <th class="sortable" onclick="setSummarySort('type')">ประเภทกล่อง<span id="sortArrow-type"></span></th>
+              <th class="sortable" onclick="setSummarySort('count')">จำนวนที่ออก<span id="sortArrow-count"></span></th>
+              <th class="sortable" onclick="setSummarySort('thb')">มูลค่าต่อชิ้น<span id="sortArrow-thb"></span></th>
+              <th class="sortable" onclick="setSummarySort('total')">มูลค่ารวม<span id="sortArrow-total"></span></th>
+            </tr>
+          </thead>
+          <tbody id="mysterySummaryBody">
+            <tr><td colspan="5" class="empty">ยังไม่มีข้อมูล</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h2>สรุปสถิติ</h2>
+      <div class="stat-grid">
+        <div class="stat"><div class="k">เปิดไปแล้ว</div><div class="v" id="statOpens">0</div></div>
+        <div class="stat"><div class="k">FG ที่ใช้ไป</div><div class="v" id="statFG">0</div></div>
+        <div class="stat"><div class="k">ซื้อแล้ว / ข้าม</div><div class="v" id="statBuySkip">0 / 0</div></div>
+        <div class="stat"><div class="k">ค่าธรรมเนียม Alz ที่จ่าย</div><div class="v" id="statAlz">0</div></div>
+        <div class="stat"><div class="k">ต้นทุน (บาท)</div><div class="v" id="statCostTHB">0</div></div>
+        <div class="stat"><div class="k">มูลค่าไอเทมในคลัง (THB)</div><div class="v" id="statValueTHB">0</div></div>
+      </div>
+      <div class="stat" style="margin-top:10px;">
+        <div class="k">Net (มูลค่าไอเทมที่ได้ − ต้นทุน)</div>
+        <div class="v" id="statNet">0</div>
+      </div>
+      <div class="foot-note" style="margin:10px 0 4px;">ไอเทมที่สุ่มออกมาทั้งหมด แยกตามพูล (นับทุกครั้งที่เปิด ไม่ว่าจะซื้อหรือไม่)</div>
+      <div class="box-counts">
+        <div class="chip normal">Normal<span class="n" id="cntNormal">0</span></div>
+        <div class="chip ssr">SSR<span class="n" id="cntSSR">0</span></div>
+        <div class="chip ur">UR<span class="n" id="cntUR">0</span></div>
+      </div>
+      <details>
+        <summary>ต้นทุนอ้างอิงคืออะไร?</summary>
+        <div class="foot-note">
+          ชีทกำหนดค่าเทียบ "เปิดละ 15 บาท" ไว้เป็นฐานคำนวณ (3,000 FG ≈ 15 บาท) ต้นทุนอ้างอิงนี้คิดจากทุกครั้งที่เปิด
+          (เพราะเสีย FG ทุกครั้ง) ส่วนค่าธรรมเนียม Alz เป็นเงินในเกมคนละสกุล จึงแสดงแยกต่างหาก ไม่รวมใน Net
+        </div>
+      </details>
+    </div>
+
+    <div class="panel" style="margin-bottom:0;">
+      <h2>คลัง (ไอเทมที่ซื้อแล้ว)</h2>
+      <div class="tbl-wrap" style="max-height:260px;">
+        <table>
+          <thead><tr><th>ไอเทม</th><th>จำนวน</th><th>มูลค่ารวม</th></tr></thead>
+          <tbody id="inventoryBody">
+            <tr><td colspan="3" class="empty">คลังว่าง</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<!-- ============================= END VIEW 1 ============================= -->
+
+<!-- ============================= VIEW 2: OPTION SCROLL RANDOM BOX ============================= -->
+<div id="viewOption" class="mainview">
+<div class="sub">จำลองการเปิดกล่องย่อย 3 แบบ (Weapon / Armor / Bike Option Scroll Random Box) ที่ได้รับเป็นรางวัลจากกล่อง UR/SSR — แก้ไข Rate ได้เพื่อทดลองปรับสมดุล</div>
+
+<div class="panel">
+  <h2>ควบคุมการจำลอง</h2>
+  <div class="control-row">
+    <div>
+      <label>เลือกชนิดกล่อง</label>
+      <div class="boxtabs">
+        <button id="tabWeapon" class="active" onclick="osSelectBox('Weapon')">Weapon</button>
+        <button id="tabArmor" onclick="osSelectBox('Armor')">Armor</button>
+        <button id="tabBike" onclick="osSelectBox('Bike')">Bike</button>
+      </div>
+    </div>
+    <div>
+      <label>จำนวนครั้งที่จะเปิด</label>
+      <div class="row" style="align-items:center; gap:10px; margin-bottom:0;">
+        <div class="boxtabs" id="osNOpensButtons" style="margin-bottom:0;">
+          <button class="active" data-n="1" onclick="osSelectN(1)">1</button>
+          <button data-n="10" onclick="osSelectN(10)">10</button>
+          <button data-n="100" onclick="osSelectN(100)">100</button>
+          <button data-n="1000" onclick="osSelectN(1000)">1000</button>
+        </div>
+        <input type="number" id="osNOpensCustom" min="1" max="20000" placeholder="กำหนดเอง" style="width:110px; margin-bottom:0;" onchange="osCustomN(this.value)">
+      </div>
+    </div>
+    <div class="control-actions">
+      <button onclick="osSimulate(osGetN())">เปิดกล่อง</button>
+      <button class="danger" onclick="osResetSim()">รีเซ็ตทั้งหมด</button>
+    </div>
+  </div>
+  <div class="foot-note">
+    กล่องเหล่านี้ได้มาฟรีจากการสุ่ม (เช่น เป็นไอเทมในพูล UR/SSR) การเปิดจึงไม่มีต้นทุน FG/Alz เพิ่ม
+    เครื่องมือนี้จำลองเฉพาะ "ผลที่ออกมา" เมื่อเปิดกล่องย่อยนั้นแล้วเท่านั้น
+  </div>
+</div>
+
+<div class="panel">
+  <h2>ตารางไอเทม (แก้ไขมูลค่าและ Rate ได้)</h2>
+  <div class="row" style="margin-bottom:8px;">
+    <button class="secondary" onclick="osResetRates()">รีเซ็ตพูลนี้เป็นค่าเริ่มต้น</button>
+    <button class="secondary" onclick="exportOsItemTable()">บันทึกตารางไอเทมเป็น .xlsx</button>
+  </div>
+  <div class="rate-sum" id="osRateSum"></div>
+  <div class="tbl-wrap" style="max-height:300px;">
+    <table class="pooltable">
+      <thead><tr><th>ไอเทม</th><th>THB</th><th>Rate%</th></tr></thead>
+      <tbody id="osPoolRefBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="layout-rev">
+  <div>
+    <div class="panel">
+      <h2>ประวัติการเปิดกล่อง (ล่าสุดอยู่บนสุด)</h2>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>กล่อง</th><th>ไอเทมที่ได้</th><th>มูลค่า (THB)</th></tr>
+          </thead>
+          <tbody id="osHistoryBody">
+            <tr><td colspan="4" class="empty">ยังไม่มีประวัติการเปิด — กด "เปิดกล่อง"</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:0;">
+      <h2>ประวัติไอเทมที่ถูกเปิด</h2>
+      <div class="boxtabs" id="osSummaryFilterButtons" style="margin-bottom:10px;">
+        <button class="active" data-filter="All" onclick="setOsSummaryFilter('All')">ทั้งหมด</button>
+        <button data-filter="Weapon" onclick="setOsSummaryFilter('Weapon')">Weapon</button>
+        <button data-filter="Armor" onclick="setOsSummaryFilter('Armor')">Armor</button>
+        <button data-filter="Bike" onclick="setOsSummaryFilter('Bike')">Bike</button>
+        <button class="secondary" onclick="exportOsOpenedItems()" style="flex:none;">บันทึกเป็น .xlsx</button>
+      </div>
+      <div class="foot-note" id="osSummaryGrandTotal" style="font-size:13px; margin:0 0 10px;"></div>
+      <div class="tbl-wrap" style="max-height:none; overflow-y:visible;">
+        <table>
+          <thead>
+            <tr>
+              <th>ไอเทม</th>
+              <th class="sortable" onclick="setOsSummarySort('type')">ประเภทกล่อง<span id="osSortArrow-type"></span></th>
+              <th class="sortable" onclick="setOsSummarySort('count')">จำนวนที่ออก<span id="osSortArrow-count"></span></th>
+              <th class="sortable" onclick="setOsSummarySort('thb')">มูลค่าต่อชิ้น<span id="osSortArrow-thb"></span></th>
+              <th class="sortable" onclick="setOsSummarySort('total')">มูลค่ารวม<span id="osSortArrow-total"></span></th>
+            </tr>
+          </thead>
+          <tbody id="osSummaryBody">
+            <tr><td colspan="5" class="empty">ยังไม่มีข้อมูล</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel" style="margin-bottom:0;">
+      <h2>สรุปสถิติ (<span id="osCurBoxName">Weapon</span> Option Scroll Random Box)</h2>
+      <div class="stat-grid">
+        <div class="stat"><div class="k">เปิดไปแล้ว</div><div class="v" id="osStatOpens">0</div></div>
+        <div class="stat"><div class="k">มูลค่ารวมที่ออก (THB)</div><div class="v" id="osStatValue">0</div></div>
+        <div class="stat"><div class="k">มูลค่าเฉลี่ย/ครั้ง (จำลองจริง)</div><div class="v" id="osStatAvg">0</div></div>
+        <div class="stat"><div class="k">EV ทางทฤษฎี/ครั้ง (จากเรทปัจจุบัน)</div><div class="v" id="osStatEV">0</div></div>
+      </div>
+      <div class="foot-note" id="osDeltaNote"></div>
+    </div>
+  </div>
+</div>
+</div>
+<!-- ============================= END VIEW 2 ============================= -->
+
+<script>
+/* ===================== SHARED UTILS ===================== */
+function fmt(n, dec){
+  dec = dec===undefined?0:dec;
+  return Number(n).toLocaleString('en-US', {minimumFractionDigits:dec, maximumFractionDigits:dec});
+}
+function clearEmptyRow(tbody){
+  if(tbody.querySelector('.empty')) tbody.innerHTML = "";
+}
+
+/* ===================== TOP-LEVEL TAB SWITCH ===================== */
+function switchMainTab(view){
+  document.getElementById('mainTabMystery').classList.toggle('active', view==='Mystery');
+  document.getElementById('mainTabOption').classList.toggle('active', view==='Option');
+  document.getElementById('viewMystery').classList.toggle('active', view==='Mystery');
+  document.getElementById('viewOption').classList.toggle('active', view==='Option');
+}
+
+/* ===================================================================
+   VIEW 1: MYSTERY BOX — DATA (from sheet: มิสเตอหรี่จูล้าย 26)
+   Each entry: [item name, THB value, Rate(%)]
+   =================================================================== */
+
+const normalPool = [
+["Chaos Talisman +4",300,0.05],["Armor Option Scroll (Medium)-Sword Skill Amp.",300,0.05],
+["Armor Option Scroll (Medium)-Magic Skill Amp.",285,0.05],["Extreme Upgrade Seal Stone (Normal):One-Handed Weapon+1",200,0.1],
+["Extreme Upgrade Seal Stone (Normal):Armor+1",170,0.1],["Crest of Earth Option Scroll-Critical DMG",150,0.1],
+["Extreme Upgrade Seal Stone (Normal):Astral Bike+1",120,0.1],["Bike Attribute Scroll (Medium)-Max Critical Rate",110,0.25],
+["Minesta's Unbinding Stone (Medium) - Armor",100,0.2],["Crest of Sky Option Scroll-Critical DMG",85,0.3],
+["Perfect Core +13 (High)",80,0.3],["Minesta's Chaos Fighter Belt +6",70,0.35],
+["Arcana of Laws +6",60,0.4],["Minesta's Chaos Sage Belt +6",60,0.4],
+["Essence of Chaos Guardian (Amulet)",60,0.5],["Essence of Chaos Guardian (Chaos Talisman)",60,0.5],
+["Essence of Chaos Guardian (Earring)",60,0.5],["Arcana of Chaos+6",50,0.5],
+["Crest of Sky Option Scroll-Magic Skill Amp.",50,0.5],["Astral Bikecard-Type: RW3",50,1],
+["Crest of Earth Option Scroll-Ignore Resist Critical Rate",50,0.5],["Divine Seal Stone(Highest):One-Handed Weapon+3",50,0.5],
+["Perfect Core(Medium)",45,0.5],["Perfect Core +12 (High)",44.5,0.6],
+["Extreme Upgrade Seal Stone (Normal):Two-Handed Weapon+1",40,0.65],["Crest of Sky Option Scroll-Sword Skill Amp.",40,0.65],
+["Extreme Core (Lv. 8)",40,1],["Essence of Chaos Guardian (Arcana of Chaos)",40,0.65],
+["Essence of Chaos Guardian (Carnelian)",40,0.65],["Divine Seal Stone(High):Astral Bike+3",35,0.7],
+["Slot Extender(Medium)",34,1],["Perfect Core +11 (High)",32.5,0.7],
+["Carnelian +6",30,0.7],["Arcana of Guardian +6",30,0.7],
+["Crest of Earth Option Scroll-Ignore Resist Critical Damage",30,0.7],["Essence of Chaos Guardian (Arcana of Laws)",30,0.7],
+["Blessing Bead - Box Drop Rate (300%) (2 ชม.)",28,1],["Mercenary Card Piece - Elena x10",27,0.7],
+["Gold Insignia Elixir (100)",25,0.75],["Crest of Life Option Scroll-Sword Skill Amp",25,0.75],
+["Mercenary Card Piece - Skaild x10",25,0.75],["Essence of Chaos Guardian (Chaos Belt)",23,0.75],
+["Merit Medal evaluation order",20,2],["Divine Seal Stone(High):One-Handed Weapon+3",20,0.8],
+["Astral Bikecard-Type: Blue",20,0.8],["Blessing Bead - Ultimate (3 ชม)",20,0.8],
+["Bike Attribute Scroll (Medium)-Critical Rate",20,0.8],["Extreme Core (Lv. 7)",20,1],
+["Crest of Life Option Scroll-Critical DMG",18,0.85],["Core Superior (Medium) x3",18,0.85],
+["Core Enhancer(Medium) x3",16.5,0.85],["Blessing Bead - Box Drop Rate (200%) (2 ชม.)",16,0.85],
+["Gold Insignia Elixir (50)",15,0.85],["Enchantment Safeguard (Medium)",15,1],
+["Essence of Chaos Guardian (Arcana of Guardian)",15,0.85],["Perfect Core +13 (Medium)",15,0.85],
+["Armor Option Scroll (Medium)-Critical Rate",14.5,0.9],["Blessing Bead - Drop Rate (100%) (2 ชม)",13.5,0.9],
+["Minesta's Unbinding Stone (Medium) - Weapon",10,1],["Merit Medal evaluation cancel order",10,1],
+["Extreme Core Pocket(Supplementary)",10,1],["Perfect Core +10 (High)",10,1],
+["Crest of Life Option Scroll-Magic Skill Amp",10,1],["Perfect Core +11 (Medium)",10,1],
+["Bike Attribute Scroll (Medium)-Critical DMG",8.5,2],["Minesta's Chaos Guardian Belt +6",8,2],
+["Weapon Option Scroll (Medium)-Sword Skill Amp.",8,2],["Perfect Core +10 (Medium)",8,2],
+["Slot Extender(Low)",7,2],["Armor Option Scroll (Medium)-Max Cri Rate",6,2],
+["ลดราคา (1H) - Platinum Insignia",5,2.7],["Happy Birthday Ring (1 วัน)",5,3],
+["ลดเวลา (30min) - Platinum Insignia",5,3.5],["Weapon Option Scroll (Medium)-Critical Dmg.",4.9,2],
+["Bike Epic Converter Box (Lv. 2)",4.5,4],["Mercenary Card Piece - Aizhan x10",4,5],
+["Luminous : Selena x10",4,5],["Perfect Core +12 (Medium)",4,5],
+["Mercenary Card Piece - Leedy x10",3,5],["Weapon Option Scroll (Medium)-Magic Skill Amp.",3,5],
+["Divine Seal Stone(Highest):Astral Bike+3",1,5]
+];
+
+const ssrPool = [
+["Armor Option Scroll (High)-Sword Skill Amp.",3000,0.01],["Armor Option Scroll (High)-Magic Skill Amp.",3000,0.01],
+["Crest of Earth Option Scroll-Penetration",800,0.1],["Extreme Upgrade Seal Stone (Normal):One-Handed Weapon+2",500,0.25],
+["Extreme Upgrade Seal Stone (Normal):Armor+2",450,0.25],["Crest of Life Option Scroll-Max Critical Rate",450,0.25],
+["Carnelian +10",400,0.5],["Slot Extender(High)",400,0.5],
+["Bike Attribute Scroll (High)-Max Critical Rate",400,0.5],["Minesta's Chaos Fighter Belt +10",350,0.5],
+["Minesta's Chaos Sage Belt +10",350,0.5],["Arcana of Chaos+10",350,0.5],
+["Perfect Core +13 (Highest)",330,0.5],["Arcana of Laws +10",320,0.5],
+["Sirius' Unbinding Stone (Highest) - Weapon",300,0.5],["Arcana of Guardian +10",285,0.73],
+["Armor Option Scroll (High)-Critical Rate",250,0.8],["Crest of Earth Option Scroll- Critical Dmg.",250,0.8],
+["Honor Medal Reset Scroll (Option Selective)",250,0.8],["Minesta's Unbinding Stone (Highest) - Armor",200,1],
+["Perfect Core(High)",195,1],["Transformation Kit",250,1],
+["Extreme Upgrade Seal Stone (Normal)",95,1.95],["Honor Medal Reset Scroll (Option Selective)",250,1.75],
+["Minesta's Chaos Guardian Belt +10",170,1],["Sirius' Unbinding Stone (High) - Weapon",150,1],
+["Enchantment Safeguard (High)",140,1.5],["Minesta's Unbinding Stone (Highest) - Weapon",140,1.5],
+["Chaos Safeguard - Earring",120,1.5],["Extreme Core (Lv. 10)",120,1.5],
+["Core Enhancer(Highest) x3",120,1.5],["Perfect Core +12 (Highest)",110,1],
+["Core Superior (Ultimate) x2",100,2],["Chaos Safeguard - Amulet",100,2],
+["Extreme Upgrade Seal Stone (Normal):Two-Handed Weapon+2",99,1.3],["Extreme Upgrade Seal Stone (Normal)",95,2],
+["Chaos Safeguard - Chaos Talisman",95,2],["Armor Option Scroll (High)-Max Cri Rate",90,2],
+["Extreme Core (Lv. 9)",90,2],["Chaos Safeguard - Carnelian",80,3],
+["Luminous : Sole x1",80,2],["Perfect Core(Ultimate) +11",80,2],
+["Perfect Core +11 (Highest)",80,2],["Chaos Safeguard - Chaos Belt",75,3],
+["Chaos Safeguard - Arcana of Chaos",70,3],["Minesta's Unbinding Stone (High) - Armor",70,3],
+["Perfect Core(Ultimate) +10",70,3],["Perfect Core(Ultimate) +9",70,3],
+["Chaos Safeguard - Arcana of Guardian",62,3],["Weapon Option Scroll Random Box",63,3],
+["Core Superior (Highest) x3",60,3],["Chaos Safeguard - Arcana of Laws",60,4],
+["Bike Attribute Scroll (High)-Critical Rate",50,3],["Bike Attribute Scroll (High)-Critical DMG",50,3],
+["Minesta's Unbinding Stone (High) - Weapon",45,3],["Core Superior (High) x3",45,3],
+["Crest of Life Option Scroll-Penetration",43,3],["Perfect Core +10 (Highest)",40,3],
+["Core Enhancer(High) x3",30,3],["Core Enhancer(Ultimate) x2",24,3]
+];
+
+const urPool = [
+["Slot Extender (Ultimate)",20000,0.0001],["Essence Rune(Resist Petrification)",20000,0.05],
+["Bike Epic Converter (Lv. 5) - Penetration",10000,0.05],["Chaos Safeguard",5500,0.55],
+["Chaos Talisman +9",5000,0.5],["Carnelian +13",4500,0.8],
+["Slot Extender(Highest)",4200,0.8],["Extreme Upgrade Seal Stone (Master):One-Handed Weapon+3",4000,1],
+["Arcana of Chaos+13",3500,1],["Minesta's Chaos Fighter Belt +13",3500,1],
+["Extreme Upgrade Seal Stone (Master):Armor+3",3000,1],["Minesta's Chaos Sage Belt +13",3000,1],
+["Arcana of Guardian +13",2500,1.25],["Arcana of Laws +13",2500,1.5],
+["Minesta's Unbinding Stone (Ultimate) - Weapon",2500,1],["Critical Ring +4",2500,1],
+["Extreme Upgrade Seal Stone (Master):Two-Handed Weapon+3",2300,1],["Ring of Luck +4",2300,1],
+["Extreme Upgrade Seal Stone (Master)",2000,1],["Divine Seal Stone(Highest):One-Handed Weapon+11",2000,2],
+["Divine Seal Stone(Highest):Suit+11",2000,2],["Divine Seal Stone(Highest):Gloves+11",2000,2],
+["Divine Seal Stone(Highest):Boots+11",2000,2],["Astral Bike Card - PW5",2000,2],
+["Armor Option Scroll Random Box",1700,2],["Divine Seal Stone(Highest):Helmet+11",1500,2],
+["Divine Seal Stone(High):Helmet+11",1500,2],["Divine Seal Stone(High):Gloves+11",1500,2],
+["Divine Seal Stone(High):Boots+11",1500,2],["Minesta's Chaos Guardain Belt +13",1200,1.5],
+["Divine Seal Stone(High):Suit+11",1100,2],["Bike Option Scroll Random Box",875,3],
+["Enchant Safeguard (Ultimate)",850,3],["Divine Seal Stone(High):One-Handed Weapon+11",800,3],
+["Bike Epic Converter (Lv. 4) - Penetration",500,3],["Sirius' Unbinding Stone (Highest) - Armor",500,3],
+["Enchantment Safeguard (Highest)",450,4],["Perfect Core(Ultimate) +13",450,4],
+["Perfect Core(Ultimate) +12",350,4],["Minesta's Unbinding Stone (Ultimate) - Armor",350,4],
+["Divine Seal Stone(Highest):Two-Handed Weapon+11",300,4],["Extreme Core (Lv. 12)",290,4],
+["Sirius' Unbinding Stone (High) - Armor",200,4],["Perfect Core(Ultimate) +11",200,4],
+["Extreme Core (Lv. 11)",125,4],["Divine Seal Stone(High):Two-Handed Weapon+11",100,5],
+["Bike Slot Converter (Highest)",100,5]
+];
+
+const tierBands = {
+  Normal:{epic:100, rareMin:21},
+  SSR:{epic:150, rareMin:51},
+  UR:{epic:3000, rareMin:1001}
+};
+
+function tierOf(boxType, thb){
+  const b = tierBands[boxType];
+  if(thb >= b.epic) return "Epic";
+  if(thb >= b.rareMin) return "Rare";
+  return "Common";
+}
+
+const poolByType = {Normal: normalPool, SSR: ssrPool, UR: urPool};
+const mysteryDefaultPools = {
+  Normal: normalPool.map(it => [...it]),
+  SSR: ssrPool.map(it => [...it]),
+  UR: urPool.map(it => [...it])
+};
+
+const FG_PER_OPEN = 3000;
+const THB_REF_PER_OPEN = 15;
+const ALZ_FEE = 3000000;
+
+function weightedPick(pool){
+  const total = pool.reduce((s,it)=>s+it[2],0);
+  let r = Math.random()*total;
+  for(const it of pool){
+    r -= it[2];
+    if(r <= 0) return it;
+  }
+  return pool[pool.length-1];
+}
+
+let state = {
+  opens:0, fgSpent:0, alzSpent:0, thbRefCost:0, valueTHB:0,
+  bought:0, skipped:0,
+  counts:{Normal:0, SSR:0, UR:0},
+  history:[], // {idx, type, name, tier, thb, fg, alz, status}
+  inventory:{} // name -> {count, unitThb, total}
+};
+
+let pendingList = []; // array of {idx, type, name, tier, thb}
+
+function boxTypeForIndex(n){
+  if(n % 100 === 0) return "UR";
+  if(n % 10 === 0) return "SSR";
+  return "Normal";
+}
+
+let selectedN = 1;
+function selectN(v){
+  selectedN = v;
+  document.querySelectorAll('#nOpensButtons button').forEach(b=>{
+    b.classList.toggle('active', parseInt(b.dataset.n) === v);
+  });
+  document.getElementById('nOpensCustom').value = '';
+}
+function customN(v){
+  const n = parseInt(v);
+  if(!n || n < 1) return;
+  selectedN = Math.min(20000, n);
+  document.querySelectorAll('#nOpensButtons button').forEach(b=> b.classList.remove('active'));
+}
+function getN(){ return selectedN; }
+
+function rollOne(){
+  state.opens += 1;
+  const type = boxTypeForIndex(state.opens);
+  const item = weightedPick(poolByType[type]);
+  const tier = tierOf(type, item[1]);
+  state.fgSpent += FG_PER_OPEN;
+  state.thbRefCost += THB_REF_PER_OPEN;
+  state.counts[type] += 1;
+  return {idx:state.opens, type, name:item[0], tier, thb:item[1]};
+}
+
+function finalizeRow(roll, bought){
+  const row = {
+    idx:roll.idx, type:roll.type, name:roll.name, tier:roll.tier, thb:roll.thb,
+    fg:FG_PER_OPEN, alz: bought?ALZ_FEE:0, status: bought?'bought':'skipped'
+  };
+  if(bought){
+    state.bought += 1;
+    state.alzSpent += ALZ_FEE;
+    state.valueTHB += roll.thb;
+    if(!state.inventory[roll.name]) state.inventory[roll.name] = {count:0, unitThb:roll.thb, total:0};
+    state.inventory[roll.name].count += 1;
+    state.inventory[roll.name].total += roll.thb;
+  } else {
+    state.skipped += 1;
+  }
+  state.history.push(row);
+  return row;
+}
+
+/* ---- Open N boxes -> pushes into pendingList, awaiting buy/skip ---- */
+function openBoxes(){
+  const n = getN();
+  for(let i=0;i<n;i++){
+    pendingList.push(rollOne());
+  }
+  renderPending();
+  renderStats(); // FG already spent regardless of buy decision
+}
+
+function renderPending(){
+  const area = document.getElementById('pendingArea');
+  if(pendingList.length === 0){ area.innerHTML = ""; return; }
+  const totalValue = pendingList.reduce((s,p)=>s+p.thb,0);
+  const rowsHtml = pendingList.map(p => `
+    <tr>
+      <td>${p.idx}</td>
+      <td><span class="badge ${p.type}">${p.type}</span></td>
+      <td>${p.name}</td>
+      <td class="val">${fmt(p.thb, p.thb%1?2:0)}</td>
+      <td style="white-space:nowrap;">
+        <button class="small" onclick="resolvePendingItem(${p.idx}, true)">ซื้อ</button>
+        <button class="small skip" onclick="resolvePendingItem(${p.idx}, false)">ข้าม</button>
+      </td>
+    </tr>`).join("");
+
+  area.innerHTML = `
+    <div class="pending">
+      <div class="label">รอซื้อ ${pendingList.length} รายการ · มูลค่ารวม ${fmt(totalValue,2)} บาท · ค่าธรรมเนียมถ้าซื้อทั้งหมด ${fmt(pendingList.length*ALZ_FEE)} Alz</div>
+      <div class="row" style="margin-bottom:10px;">
+        <button onclick="buyAllPending()">ซื้อทั้งหมด</button>
+        <button class="skip" onclick="skipAllPending()">ข้ามทั้งหมด</button>
+      </div>
+      <div class="tbl-wrap" style="max-height:280px;">
+        <table>
+          <thead><tr><th>#</th><th>พูล</th><th>ไอเทม</th><th>มูลค่า</th><th></th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function resolvePendingItem(idx, buy){
+  const i = pendingList.findIndex(p => p.idx === idx);
+  if(i < 0) return;
+  const roll = pendingList[i];
+  pendingList.splice(i,1);
+  const row = finalizeRow(roll, buy);
+  renderPending();
+  renderNewRows([row]);
+  renderStats();
+  renderInventory();
+}
+
+function buyAllPending(){
+  if(pendingList.length === 0) return;
+  const rows = pendingList.map(roll => finalizeRow(roll, true));
+  pendingList = [];
+  renderPending();
+  renderNewRows(rows);
+  renderStats();
+  renderInventory();
+}
+
+function skipAllPending(){
+  if(pendingList.length === 0) return;
+  const rows = pendingList.map(roll => finalizeRow(roll, false));
+  pendingList = [];
+  renderPending();
+  renderNewRows(rows);
+  renderStats();
+  renderInventory();
+}
+
+function renderNewRows(rows){
+  const body = document.getElementById('historyBody');
+  clearEmptyRow(body);
+  const frag = document.createDocumentFragment();
+  for(let i=rows.length-1;i>=0;i--){
+    const r = rows[i];
+    const tr = document.createElement('tr');
+    if(r.status === 'skipped') tr.className = 'skipped';
+    tr.innerHTML = `
+      <td>${r.idx}</td>
+      <td><span class="badge ${r.type}">${r.type}</span></td>
+      <td>${r.name}</td>
+      <td class="val">${fmt(r.thb, r.thb%1?2:0)}</td>
+      <td><span class="status ${r.status}">${r.status==='bought'?'ซื้อแล้ว':'ข้าม'}</span></td>
+      <td>${fmt(r.fg)}</td>
+      <td>${r.alz ? fmt(r.alz) : '—'}</td>`;
+    frag.appendChild(tr);
+  }
+  body.insertBefore(frag, body.firstChild);
+}
+
+function renderInventory(){
+  const body = document.getElementById('inventoryBody');
+  const names = Object.keys(state.inventory);
+  if(names.length === 0){
+    body.innerHTML = '<tr><td colspan="3" class="empty">คลังว่าง</td></tr>';
+    return;
+  }
+  names.sort((a,b)=> state.inventory[b].total - state.inventory[a].total);
+  body.innerHTML = names.map(n=>{
+    const it = state.inventory[n];
+    return `<tr><td>${n}</td><td>${fmt(it.count)}</td><td class="val">${fmt(it.total, it.total%1?2:0)}</td></tr>`;
+  }).join("");
+}
+
+function renderStats(){
+  document.getElementById('statOpens').textContent = fmt(state.opens);
+  document.getElementById('statFG').textContent = fmt(state.fgSpent);
+  document.getElementById('statBuySkip').textContent = fmt(state.bought) + ' / ' + fmt(state.skipped);
+  document.getElementById('statAlz').textContent = fmt(state.alzSpent);
+  document.getElementById('statCostTHB').textContent = fmt(state.thbRefCost);
+  document.getElementById('statValueTHB').textContent = fmt(state.valueTHB, 2);
+  const net = state.valueTHB - state.thbRefCost;
+  const netEl = document.getElementById('statNet');
+  netEl.textContent = (net>=0?'+':'') + fmt(net,2);
+  netEl.className = 'v ' + (net>=0 ? 'pos':'neg');
+
+  document.getElementById('cntNormal').textContent = fmt(state.counts.Normal);
+  document.getElementById('cntSSR').textContent = fmt(state.counts.SSR);
+  document.getElementById('cntUR').textContent = fmt(state.counts.UR);
+
+  renderMysterySummary();
+}
+
+let summaryFilter = 'All';
+let summarySort = {col:'count', dir:'desc'};
+
+function setSummaryFilter(f){
+  summaryFilter = f;
+  document.querySelectorAll('#summaryFilterButtons button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.filter === f);
+  });
+  renderMysterySummary();
+}
+
+function setSummarySort(col){
+  if(summarySort.col === col){
+    summarySort.dir = summarySort.dir === 'desc' ? 'asc' : 'desc';
+  } else {
+    summarySort = {col, dir:'desc'};
+  }
+  renderMysterySummary();
+}
+
+function renderMysterySummary(){
+  const body = document.getElementById('mysterySummaryBody');
+  const totalEl = document.getElementById('summaryGrandTotal');
+
+  ['type','count','thb','total'].forEach(c=>{
+    const el = document.getElementById('sortArrow-'+c);
+    if(el) el.textContent = summarySort.col === c ? (summarySort.dir === 'desc' ? ' ▼' : ' ▲') : '';
+  });
+
+  const grandTotal = state.history.reduce((s,r)=> s + r.thb, 0);
+
+  const groups = {};
+  state.history.forEach(r=>{
+    const key = r.type + '|' + r.name;
+    if(!groups[key]) groups[key] = {type:r.type, name:r.name, thb:r.thb, count:0, total:0};
+    groups[key].count += 1;
+    groups[key].total += r.thb;
+  });
+  let keys = Object.keys(groups);
+  if(summaryFilter !== 'All'){
+    keys = keys.filter(k => groups[k].type === summaryFilter);
+  }
+  const filteredTotal = keys.reduce((s,k)=> s + groups[k].total, 0);
+
+  if(summaryFilter === 'All'){
+    totalEl.innerHTML = `มูลค่ารวมไอเทมทั้งหมดที่ถูกเปิดออก: <span class="val">${fmt(grandTotal,2)} บาท</span>`;
+  } else {
+    totalEl.innerHTML = `มูลค่ารวมไอเทมทั้งหมดที่ถูกเปิดออก: <span class="val">${fmt(grandTotal,2)} บาท</span> ·
+      เฉพาะ ${summaryFilter} ที่กรองอยู่: <span class="val">${fmt(filteredTotal,2)} บาท</span>`;
+  }
+
+  if(keys.length === 0){
+    body.innerHTML = '<tr><td colspan="5" class="empty">ยังไม่มีข้อมูล</td></tr>';
+    return;
+  }
+  keys.sort((a,b)=>{
+    const ga = groups[a], gb = groups[b];
+    let av, bv;
+    if(summarySort.col === 'type'){ av = ga.type; bv = gb.type; }
+    else { av = ga[summarySort.col]; bv = gb[summarySort.col]; }
+    if(typeof av === 'string'){
+      return summarySort.dir === 'desc' ? bv.localeCompare(av) : av.localeCompare(bv);
+    }
+    return summarySort.dir === 'desc' ? bv - av : av - bv;
+  });
+  body.innerHTML = keys.map(k=>{
+    const g = groups[k];
+    return `<tr>
+      <td>${g.name}</td>
+      <td><span class="badge ${g.type}">${g.type}</span></td>
+      <td>${fmt(g.count)}</td>
+      <td class="val">${fmt(g.thb, g.thb%1?2:0)}</td>
+      <td class="val">${fmt(g.total, g.total%1?2:0)}</td>
+    </tr>`;
+  }).join("");
+}
+
+function resetSim(){
+  state = {opens:0, fgSpent:0, alzSpent:0, thbRefCost:0, valueTHB:0, bought:0, skipped:0,
+    counts:{Normal:0,SSR:0,UR:0}, history:[], inventory:{}};
+  pendingList = [];
+  document.getElementById('pendingArea').innerHTML = "";
+  document.getElementById('historyBody').innerHTML = '<tr><td colspan="7" class="empty">ยังไม่มีประวัติการเปิด — กด "เปิดกล่อง"</td></tr>';
+  document.getElementById('inventoryBody').innerHTML = '<tr><td colspan="3" class="empty">คลังว่าง</td></tr>';
+  renderStats();
+}
+
+let currentRatePool = 'Normal';
+
+function selectRatePool(type){
+  currentRatePool = type;
+  document.querySelectorAll('#rateTabButtons button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.pool === type);
+  });
+  renderMysteryRateTable();
+}
+
+function renderMysteryRateTable(){
+  const body = document.getElementById('mysteryRatePoolBody');
+  const pool = poolByType[currentRatePool];
+  body.innerHTML = pool.map((it,i)=>
+    `<tr>
+       <td>${it[0]}</td>
+       <td><input type="number" step="0.01" min="0" class="thb-input" data-idx="${i}" data-field="thb" value="${it[1]}"></td>
+       <td><input type="number" step="0.01" min="0" class="rate-input" data-idx="${i}" data-field="rate" value="${it[2]}"></td>
+     </tr>`
+  ).join("");
+  body.querySelectorAll('.thb-input, .rate-input').forEach(inp=>{
+    inp.addEventListener('change', function(){
+      const idx = parseInt(this.dataset.idx);
+      const field = this.dataset.field;
+      const val = parseFloat(this.value);
+      const clean = isNaN(val) ? 0 : val;
+      if(field === 'thb') poolByType[currentRatePool][idx][1] = clean;
+      else poolByType[currentRatePool][idx][2] = clean;
+      renderMysteryRateSum();
+    });
+  });
+  renderMysteryRateSum();
+}
+
+function renderMysteryRateSum(){
+  const pool = poolByType[currentRatePool];
+  const sum = pool.reduce((s,it)=>s+it[2],0);
+  const el = document.getElementById('mysteryRateSum');
+  el.textContent = `รวม Rate ปัจจุบัน (${currentRatePool}): ${sum.toFixed(2)}%` +
+    (Math.abs(sum-100)<0.5 ? ' (ใกล้เคียง 100%)' : ' (ไม่เท่ากับ 100% — ระบบยังสุ่มตามสัดส่วนได้ปกติ)');
+  el.className = 'rate-sum ' + (Math.abs(sum-100)<0.5 ? 'ok' : 'warn');
+}
+
+function resetPoolRates(){
+  poolByType[currentRatePool] = mysteryDefaultPools[currentRatePool].map(it => [...it]);
+  renderMysteryRateTable();
+}
+
+function downloadXlsxSheets(sheetsObj, filename){
+  if(typeof XLSX === 'undefined'){
+    alert('ไม่สามารถโหลดไลบรารีสำหรับสร้างไฟล์ .xlsx ได้ ลองเช็คการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่');
+    return;
+  }
+  const wb = XLSX.utils.book_new();
+  Object.keys(sheetsObj).forEach(name=>{
+    const ws = XLSX.utils.aoa_to_sheet(sheetsObj[name]);
+    XLSX.utils.book_append_sheet(wb, ws, name.substring(0,31));
+  });
+  XLSX.writeFile(wb, filename);
+}
+
+function exportMysteryItemTable(){
+  const sheets = {};
+  ['Normal','SSR','UR'].forEach(type=>{
+    const rows = [['ไอเทม','THB','Rate%']];
+    poolByType[type].forEach(it => rows.push([it[0], it[1], it[2]]));
+    sheets[type] = rows;
+  });
+  downloadXlsxSheets(sheets, 'mystery_box_item_table.xlsx');
+}
+
+function exportMysteryOpenedItems(){
+  const groups = {};
+  state.history.forEach(r=>{
+    const key = r.type + '|' + r.name;
+    if(!groups[key]) groups[key] = {type:r.type, name:r.name, thb:r.thb, count:0, total:0};
+    groups[key].count += 1;
+    groups[key].total += r.thb;
+  });
+  const rows = [['ไอเทม','ประเภทกล่อง','จำนวนที่ออก','มูลค่าต่อชิ้น','มูลค่ารวม']];
+  Object.values(groups).forEach(g => rows.push([g.name, g.type, g.count, g.thb, g.total]));
+  downloadXlsxSheets({'ประวัติไอเทมที่ถูกเปิด': rows}, 'mystery_box_opened_items.xlsx');
+}
+
+renderStats();
+renderMysteryRateTable();
+
+/* ===================================================================
+   VIEW 2: OPTION SCROLL RANDOM BOX — DATA (from uploaded image)
+   Each entry stored as {name, thb, rate} so Rate is user-editable.
+   =================================================================== */
+
+const osDefaultPools = {
+  Weapon: [
+    {name:"Weapon Option Scroll (Ultimate) - Sword Skill Amp. x1", thb:8000, rate:0.01},
+    {name:"Weapon Option Scroll (Ultimate) - Magic Skill Amp. x1", thb:6000, rate:0.01},
+    {name:"Weapon Option Scroll (Ultimate) - Critical DMG x1", thb:50, rate:4.98},
+    {name:"Weapon Option Scroll (Highest) - Sword Skill Amp. x1", thb:80, rate:20},
+    {name:"Weapon Option Scroll (Highest) - Magic Skill Amp. x1", thb:80, rate:20},
+    {name:"Weapon Option Scroll (Highest) - Critical Rate x1", thb:85, rate:25},
+    {name:"Weapon Option Scroll (High) - Critical Rate", thb:20, rate:30}
+  ],
+  Armor: [
+    {name:"Armor Option Scroll (Ultimate) - Sword Skill Amp. x1", thb:12000, rate:0.1},
+    {name:"Armor Option Scroll (Ultimate) - Magic Skill Amp. x1", thb:13000, rate:0.1},
+    {name:"Armor Option Scroll (Ultimate) - Max Critical Rate x1", thb:650, rate:39.8},
+    {name:"Armor Option Scroll (Ultimate) - Critical Rate x1", thb:2000, rate:10},
+    {name:"Armor Option Scroll (Highest) - Sword Skill Amp. x1", thb:7000, rate:2},
+    {name:"Armor Option Scroll (Highest) - Magic Skill Amp. x1", thb:7000, rate:2},
+    {name:"Armor Option Scroll (Highest) - Max Critical Rate x1", thb:1500, rate:30},
+    {name:"Armor Option Scroll (High) - Sword Skill Amp. x1", thb:3000, rate:8},
+    {name:"Armor Option Scroll (High) - Magic Skill Amp. x1", thb:3000, rate:8}
+  ],
+  Bike: [
+    {name:"Bike Attribute Scroll (Ultimate) - Penetration", thb:15000, rate:0.1},
+    {name:"Bike Attribute Scroll (Ultimate) - Max Critical Rate", thb:3000, rate:1.5},
+    {name:"Bike Attribute Scroll (Ultimate) - Critical DMG", thb:1000, rate:30},
+    {name:"Bike Attribute Scroll (Highest) - Penetration", thb:3800, rate:3.4},
+    {name:"Bike Attribute Scroll (Highest) - Max Critical Rate", thb:700, rate:30},
+    {name:"Bike Attribute Scroll (Highest) - Critical DMG", thb:500, rate:35}
+  ]
+};
+
+function cloneDefaultPools(){
+  return {
+    Weapon: osDefaultPools.Weapon.map(it => ({...it})),
+    Armor:  osDefaultPools.Armor.map(it => ({...it})),
+    Bike:   osDefaultPools.Bike.map(it => ({...it}))
+  };
+}
+
+let osPools = cloneDefaultPools();
+
+let currentBox = 'Weapon';
+let perBoxState = {
+  Weapon: {opens:0, value:0, history:[]},
+  Armor:  {opens:0, value:0, history:[]},
+  Bike:   {opens:0, value:0, history:[]}
+};
+
+function osWeightedPick(pool){
+  const total = pool.reduce((s,it)=>s+it.rate,0);
+  let r = Math.random()*total;
+  for(const it of pool){
+    r -= it.rate;
+    if(r <= 0) return it;
+  }
+  return pool[pool.length-1];
+}
+
+let osSelectedN = 1;
+function osSelectN(v){
+  osSelectedN = v;
+  document.querySelectorAll('#osNOpensButtons button').forEach(b=>{
+    b.classList.toggle('active', parseInt(b.dataset.n) === v);
+  });
+  document.getElementById('osNOpensCustom').value = '';
+}
+function osCustomN(v){
+  const n = parseInt(v);
+  if(!n || n < 1) return;
+  osSelectedN = Math.min(20000, n);
+  document.querySelectorAll('#osNOpensButtons button').forEach(b=> b.classList.remove('active'));
+}
+function osGetN(){ return osSelectedN; }
+
+function osSelectBox(type){
+  currentBox = type;
+  ['Weapon','Armor','Bike'].forEach(t=>{
+    document.getElementById('tab'+t).classList.toggle('active', t===type);
+  });
+  document.getElementById('osCurBoxName').textContent = type;
+  osRenderPoolRef();
+  osRenderHistoryFull();
+  osRenderStats();
+  osRenderSummary();
+}
+
+function osCurrentEV(){
+  const pool = osPools[currentBox];
+  const total = pool.reduce((s,it)=>s+it.rate,0);
+  if(total <= 0) return 0;
+  return pool.reduce((s,it)=> s + it.thb*(it.rate/total), 0);
+}
+
+function osRenderRateSum(){
+  const pool = osPools[currentBox];
+  const sum = pool.reduce((s,it)=>s+it.rate,0);
+  const el = document.getElementById('osRateSum');
+  el.textContent = `รวม Rate ปัจจุบัน: ${sum.toFixed(2)}%` + (Math.abs(sum-100)<0.5 ? ' (ใกล้เคียง 100%)' : ' (ไม่เท่ากับ 100% — ระบบยังสุ่มตามสัดส่วนได้ปกติ)');
+  el.className = 'rate-sum ' + (Math.abs(sum-100)<0.5 ? 'ok' : 'warn');
+  document.getElementById('osStatEV').textContent = fmt(osCurrentEV(), 2);
+}
+
+function osRenderPoolRef(){
+  const body = document.getElementById('osPoolRefBody');
+  const pool = osPools[currentBox];
+  body.innerHTML = pool.map((it,i)=>
+    `<tr>
+       <td>${it.name}</td>
+       <td><input type="number" step="0.01" min="0" class="thb-input" data-idx="${i}" data-field="thb" value="${it.thb}"></td>
+       <td><input type="number" step="0.01" min="0" class="rate-input" data-idx="${i}" data-field="rate" value="${it.rate}"></td>
+     </tr>`
+  ).join("");
+  body.querySelectorAll('.thb-input, .rate-input').forEach(inp=>{
+    inp.addEventListener('change', function(){
+      const idx = parseInt(this.dataset.idx);
+      const field = this.dataset.field;
+      const val = parseFloat(this.value);
+      const clean = isNaN(val) ? 0 : val;
+      osPools[currentBox][idx][field] = clean;
+      osRenderRateSum();
+    });
+  });
+  osRenderRateSum();
+}
+
+function osResetRates(){
+  osPools[currentBox] = osDefaultPools[currentBox].map(it => ({...it}));
+  osRenderPoolRef();
+}
+
+function exportOsItemTable(){
+  const sheets = {};
+  ['Weapon','Armor','Bike'].forEach(type=>{
+    const rows = [['ไอเทม','THB','Rate%']];
+    osPools[type].forEach(it => rows.push([it.name, it.thb, it.rate]));
+    sheets[type] = rows;
+  });
+  downloadXlsxSheets(sheets, 'option_scroll_item_table.xlsx');
+}
+
+function exportOsOpenedItems(){
+  const groups = {};
+  ['Weapon','Armor','Bike'].forEach(type=>{
+    perBoxState[type].history.forEach(r=>{
+      const key = type + '|' + r.name;
+      if(!groups[key]) groups[key] = {type, name:r.name, thb:r.thb, count:0, total:0};
+      groups[key].count += 1;
+      groups[key].total += r.thb;
+    });
+  });
+  const rows = [['ไอเทม','ประเภทกล่อง','จำนวนที่ออก','มูลค่าต่อชิ้น','มูลค่ารวม']];
+  Object.values(groups).forEach(g => rows.push([g.name, g.type, g.count, g.thb, g.total]));
+  downloadXlsxSheets({'ประวัติไอเทมที่ถูกเปิด': rows}, 'option_scroll_opened_items.xlsx');
+}
+
+function osSimulate(times){
+  const st = perBoxState[currentBox];
+  const pool = osPools[currentBox];
+  const rows = [];
+  for(let i=0;i<times;i++){
+    st.opens += 1;
+    const item = osWeightedPick(pool);
+    st.value += item.thb;
+    const row = {idx: st.opens, type: currentBox, name: item.name, thb: item.thb};
+    st.history.push(row);
+    rows.push(row);
+  }
+  osRenderNewRows(rows);
+  osRenderStats();
+  osRenderSummary();
+}
+
+function osRenderNewRows(rows){
+  const body = document.getElementById('osHistoryBody');
+  clearEmptyRow(body);
+  const frag = document.createDocumentFragment();
+  for(let i=rows.length-1;i>=0;i--){
+    const r = rows[i];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.idx}</td>
+      <td><span class="badge ${r.type}">${r.type}</span></td>
+      <td>${r.name}</td>
+      <td class="val">${fmt(r.thb, r.thb%1?2:0)}</td>`;
+    frag.appendChild(tr);
+  }
+  body.insertBefore(frag, body.firstChild);
+}
+
+function osRenderHistoryFull(){
+  const body = document.getElementById('osHistoryBody');
+  const st = perBoxState[currentBox];
+  if(st.history.length === 0){
+    body.innerHTML = '<tr><td colspan="4" class="empty">ยังไม่มีประวัติการเปิด — กด "เปิดกล่อง"</td></tr>';
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  for(let i=st.history.length-1;i>=0;i--){
+    const r = st.history[i];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.idx}</td>
+      <td><span class="badge ${r.type}">${r.type}</span></td>
+      <td>${r.name}</td>
+      <td class="val">${fmt(r.thb, r.thb%1?2:0)}</td>`;
+    frag.appendChild(tr);
+  }
+  body.innerHTML = "";
+  body.appendChild(frag);
+}
+
+let osSummaryFilter = 'All';
+let osSummarySort = {col:'count', dir:'desc'};
+
+function setOsSummaryFilter(f){
+  osSummaryFilter = f;
+  document.querySelectorAll('#osSummaryFilterButtons button[data-filter]').forEach(b=>{
+    b.classList.toggle('active', b.dataset.filter === f);
+  });
+  osRenderSummary();
+}
+
+function setOsSummarySort(col){
+  if(osSummarySort.col === col){
+    osSummarySort.dir = osSummarySort.dir === 'desc' ? 'asc' : 'desc';
+  } else {
+    osSummarySort = {col, dir:'desc'};
+  }
+  osRenderSummary();
+}
+
+function osRenderSummary(){
+  const body = document.getElementById('osSummaryBody');
+  const totalEl = document.getElementById('osSummaryGrandTotal');
+
+  ['type','count','thb','total'].forEach(c=>{
+    const el = document.getElementById('osSortArrow-'+c);
+    if(el) el.textContent = osSummarySort.col === c ? (osSummarySort.dir === 'desc' ? ' ▼' : ' ▲') : '';
+  });
+
+  const groups = {};
+  let grandTotal = 0;
+  ['Weapon','Armor','Bike'].forEach(type=>{
+    perBoxState[type].history.forEach(r=>{
+      grandTotal += r.thb;
+      const key = type + '|' + r.name;
+      if(!groups[key]) groups[key] = {type, name:r.name, thb:r.thb, count:0, total:0};
+      groups[key].count += 1;
+      groups[key].total += r.thb;
+    });
+  });
+
+  let keys = Object.keys(groups);
+  if(osSummaryFilter !== 'All'){
+    keys = keys.filter(k => groups[k].type === osSummaryFilter);
+  }
+  const filteredTotal = keys.reduce((s,k)=> s + groups[k].total, 0);
+
+  if(osSummaryFilter === 'All'){
+    totalEl.innerHTML = `มูลค่ารวมไอเทมทั้งหมดที่ถูกเปิดออก: <span class="val">${fmt(grandTotal,2)} บาท</span>`;
+  } else {
+    totalEl.innerHTML = `มูลค่ารวมไอเทมทั้งหมดที่ถูกเปิดออก: <span class="val">${fmt(grandTotal,2)} บาท</span> ·
+      เฉพาะ ${osSummaryFilter} ที่กรองอยู่: <span class="val">${fmt(filteredTotal,2)} บาท</span>`;
+  }
+
+  if(keys.length === 0){
+    body.innerHTML = '<tr><td colspan="5" class="empty">ยังไม่มีข้อมูล</td></tr>';
+    return;
+  }
+  keys.sort((a,b)=>{
+    const ga = groups[a], gb = groups[b];
+    let av, bv;
+    if(osSummarySort.col === 'type'){ av = ga.type; bv = gb.type; }
+    else { av = ga[osSummarySort.col]; bv = gb[osSummarySort.col]; }
+    if(typeof av === 'string'){
+      return osSummarySort.dir === 'desc' ? bv.localeCompare(av) : av.localeCompare(bv);
+    }
+    return osSummarySort.dir === 'desc' ? bv - av : av - bv;
+  });
+  body.innerHTML = keys.map(k=>{
+    const g = groups[k];
+    return `<tr>
+      <td>${g.name}</td>
+      <td><span class="badge ${g.type}">${g.type}</span></td>
+      <td>${fmt(g.count)}</td>
+      <td class="val">${fmt(g.thb, g.thb%1?2:0)}</td>
+      <td class="val">${fmt(g.total, g.total%1?2:0)}</td>
+    </tr>`;
+  }).join("");
+}
+
+function osRenderStats(){
+  const st = perBoxState[currentBox];
+  document.getElementById('osStatOpens').textContent = fmt(st.opens);
+  document.getElementById('osStatValue').textContent = fmt(st.value, 2);
+  const avg = st.opens ? st.value/st.opens : 0;
+  document.getElementById('osStatAvg').textContent = fmt(avg, 2);
+  document.getElementById('osStatEV').textContent = fmt(osCurrentEV(), 2);
+
+  const note = document.getElementById('osDeltaNote');
+  const evTheory = osCurrentEV();
+  if(st.opens > 0 && evTheory > 0){
+    const diffPct = ((avg - evTheory)/evTheory*100);
+    note.textContent = `ค่าเฉลี่ยจากการจำลองต่างจาก EV ทางทฤษฎี ${diffPct>=0?'+':''}${diffPct.toFixed(1)}% (ยิ่งเปิดมากยิ่งเข้าใกล้ EV ทางทฤษฎี)`;
+  } else {
+    note.textContent = '';
+  }
+}
+
+function osResetSim(){
+  perBoxState = {
+    Weapon: {opens:0, value:0, history:[]},
+    Armor:  {opens:0, value:0, history:[]},
+    Bike:   {opens:0, value:0, history:[]}
+  };
+  osRenderHistoryFull();
+  osRenderStats();
+  osRenderSummary();
+}
+
+osSelectBox('Weapon');
+</script>
+</body>
+</html>
